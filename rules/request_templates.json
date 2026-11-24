@@ -1,0 +1,60 @@
+{
+  "_about": "Data-sharing request templates. Each template is one approved, reviewed query. A request can only run a template, never free SQL. 'policies' says, for each type of requester, which columns they may receive and which of those may stay unmasked. Every PII column follows rules/pii_registry.json unless listed in keep_clear. All templates and requests are fictional examples on synthetic data.",
+  "templates": {
+    "trips_by_vehicle": {
+      "title": "Trips made by one vehicle in a date range",
+      "use_case": "An authority asks which trips a specific vehicle made, e.g. after a road incident.",
+      "sql": "trips_by_vehicle.sql",
+      "params": {"registration_no": "text", "date_from": "date", "date_to": "date"},
+      "max_days": 92,
+      "pii_source": {"vehicle_id": "trips", "registration_no": "vehicles", "driver_id": "trips",
+                     "driver_name": "driver_contacts", "phone": "driver_contacts", "licence_no": "driver_contacts"},
+      "policies": {
+        "regulator": {
+          "columns": ["trip_id", "trip_date", "route_name", "status", "scheduled_pickup", "actual_pickup",
+                      "dropoff_at", "vendor_name", "registration_no"],
+          "keep_clear": ["registration_no"]
+        },
+        "law_enforcement": {
+          "columns": ["trip_id", "trip_date", "route_name", "status", "scheduled_pickup", "actual_pickup",
+                      "dropoff_at", "vendor_name", "registration_no", "driver_name", "phone", "licence_no"],
+          "keep_clear": ["registration_no", "driver_name", "phone", "licence_no"],
+          "requires_legal_reference": true,
+          "requires_approval": true
+        },
+        "internal_ops": {
+          "columns": ["trip_id", "trip_date", "route_name", "status", "scheduled_pickup", "actual_pickup",
+                      "dropoff_at", "vendor_name", "vehicle_id", "driver_id"],
+          "keep_clear": []
+        }
+      }
+    },
+    "vendor_compliance_status": {
+      "title": "Expired and expiring documents for one vendor",
+      "use_case": "A transport department asks for a vendor's permit, insurance, fitness and licence status.",
+      "sql": "vendor_compliance_status.sql",
+      "params": {"vendor_id": "text"},
+      "max_days": null,
+      "pii_source": {},
+      "policies": {
+        "regulator": {"columns": ["vendor_name", "document", "expiry_date", "days_left", "status"], "keep_clear": []},
+        "internal_ops": {"columns": ["vendor_id", "vendor_name", "asset_id", "document", "expiry_date",
+                                    "days_left", "status"], "keep_clear": []}
+      }
+    },
+    "vendor_payment_audit": {
+      "title": "A vendor's claims and how they reconciled",
+      "use_case": "An auditor or the finance team reviews a vendor's payment claims for a period.",
+      "sql": "vendor_payment_audit.sql",
+      "params": {"vendor_id": "text", "date_from": "date", "date_to": "date"},
+      "max_days": 92,
+      "pii_source": {},
+      "policies": {
+        "auditor": {"columns": ["vendor_id", "trip_id", "trip_date", "claimed_status", "platform_status",
+                                "claimed_fare_inr", "platform_fare", "result", "amount_at_risk_inr"], "keep_clear": []},
+        "internal_ops": {"columns": ["vendor_id", "trip_id", "trip_date", "claimed_status", "platform_status",
+                                     "claimed_fare_inr", "platform_fare", "result", "amount_at_risk_inr"], "keep_clear": []}
+      }
+    }
+  }
+}

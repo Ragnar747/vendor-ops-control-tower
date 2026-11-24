@@ -19,6 +19,7 @@ INBOX_DIR = DATA_DIR / "inbox"             # demo mailbox: .eml files
 BRONZE_EMAIL_DIR = DATA_DIR / "bronze" / "emails"   # every email saved unchanged
 OUTBOX_DIR = DATA_DIR / "outbox"           # emails the system would send
 LOG_DIR = DATA_DIR / "logs"
+SHARED_DIR = DATA_DIR / "shared"           # files produced for data-sharing requests
 DB_PATH = DATA_DIR / "control_tower.db"    # the central SQLite database
 SQL_DIR = ROOT / "sql"
 

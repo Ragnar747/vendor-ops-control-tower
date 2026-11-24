@@ -1,0 +1,32 @@
+{
+  "_about": "PII registry: every column that can identify a person, its classification and the default treatment applied whenever data leaves the core database (exports, reports, data-sharing requests). Columns not listed are not personal data. Treatments are implemented in src/privacy.py.",
+  "classifications": {
+    "direct_identifier": "Identifies a person on its own (name, phone, licence number)",
+    "quasi_identifier": "Can identify a person when combined with other data (vehicle registration, driver ID, email address)",
+    "business": "Business information, not personal data"
+  },
+  "columns": {
+    "driver_contacts": {
+      "driver_name":  {"classification": "direct_identifier", "treatment": "drop"},
+      "phone":        {"classification": "direct_identifier", "treatment": "mask_phone"},
+      "licence_no":   {"classification": "direct_identifier", "treatment": "mask_licence"},
+      "driver_id":    {"classification": "quasi_identifier",  "treatment": "pseudonymise"}
+    },
+    "drivers": {
+      "driver_id":    {"classification": "quasi_identifier",  "treatment": "pseudonymise"}
+    },
+    "trips": {
+      "driver_id":    {"classification": "quasi_identifier",  "treatment": "pseudonymise"},
+      "vehicle_id":   {"classification": "quasi_identifier",  "treatment": "pseudonymise"}
+    },
+    "vehicles": {
+      "registration_no": {"classification": "quasi_identifier", "treatment": "mask_registration"},
+      "vehicle_id":   {"classification": "quasi_identifier",  "treatment": "pseudonymise"}
+    },
+    "email_log": {
+      "sender":       {"classification": "quasi_identifier",  "treatment": "mask_email"},
+      "subject":      {"classification": "quasi_identifier",  "treatment": "redact_text"},
+      "raw_path":     {"classification": "quasi_identifier",  "treatment": "drop"}
+    }
+  }
+}

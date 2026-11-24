@@ -30,16 +30,23 @@ The manager's day starts with decisions, not data entry.
 | 8 | **Weekly reports:** a scorecard per vendor + a manager summary | `src/notify.py` |
 | 9 | **One command:** runs everything in order, with a log | `run_all.py` |
 | 10 | **Power BI dashboard:** 7 pages | `docs/DASHBOARD_GUIDE.md` |
+| 11 | **Reporting marts:** every metric defined once in SQL (CTEs, window functions), checked against the Python on every run | `sql/marts.sql`, `src/marts.py` |
+| 12 | **Data-quality framework:** 19 rules in a config file, exception report, quality history, critical-failure gate | `src/dq.py`, `rules/dq_rules.json` |
+| 13 | **Privacy controls:** PII registry, masking, pseudonymisation, free-text redaction | `src/privacy.py`, `rules/pii_registry.json` |
+| 14 | **Data-sharing requests:** approved templates, per-requester field policies, two-person rule, manifest + checksum, audit log | `src/share.py`, `rules/request_templates.json` |
 
 ```
-Vendor emails ─► Intake ─► Clean + validate ─► SQLite database
+Vendor emails ─► Intake ─► Clean + validate ─► SQLite database ─► SQL marts
                                                      │
-      ┌──────────────┬───────────────┬───────────────┼────────────────┐
-      ▼              ▼               ▼               ▼                ▼
-  Scorecard   Reconciliation   Compliance      Simulation      Weekly reports
-      └──────────────┴───────────────┴───────────────┴────────────────┘
-                                     ▼
-                           Power BI dashboard
+                                         Data-quality rules + GATE
+                                     (stops here on a critical failure)
+                                                     │
+      ┌──────────────┬───────────────┬───────────────┼────────────────┬─────────────────┐
+      ▼              ▼               ▼               ▼                ▼                 ▼
+  Scorecard   Reconciliation   Compliance      Simulation      Weekly reports   Data-sharing requests
+      └──────────────┴───────────────┴───────────────┴────────────────┘     (templates, PII policy,
+                                     ▼                                         audit log)
+                      Power BI dashboard (PII registry applied)
 ```
 
 ## Key findings (synthetic data)
@@ -52,14 +59,45 @@ Vendor emails ─► Intake ─► Clean + validate ─► SQLite database
 - **Vendor patterns:** a route specialist, a vendor that collapses on weekends, and one
   getting worse every month.
 
+- **Data quality:** 19 rules on every run; no critical failures; 2 warnings tracked
+  (20 duplicate claims, 6 claims for trips that don't exist). The first draft of the fare
+  rule wrongly flagged 4,648 cancelled trips charged ₹0; it now encodes the business rule.
+
 More in [docs/IDEAS.md](docs/IDEAS.md).
+
+## Compliance and data-sharing layer
+Built so that numbers are **defined once**, data is **checked before it leaves**, and
+anything shared is **minimal, privacy-safe and traceable**.
+
+- **Single source of truth:** all reported metrics are SQL marts
+  ([docs/METRICS.md](docs/METRICS.md)); the SQL vendor scores match the Python ones on
+  all 62 vendor-route pairs, checked on every run.
+- **Data-quality framework:** rules live in a config file; failing rows go to an
+  exception table; critical failures stop the run *before* anything is sent or shared.
+- **Privacy by default:** PII stays in the core database; exports and shared files get
+  masked, pseudonymised (salted HMAC) or dropped columns, per the PII registry.
+- **Data-sharing requests:** a request picks an approved template, gets only the columns
+  its requester type may see, needs a legal reference and a second approver for
+  law-enforcement requests, and produces a file, a manifest with a SHA-256 checksum, and
+  an audit-log entry (refused requests are logged too).
+
+```
+python src/share.py list
+python src/share.py run --template trips_by_vehicle --requester-type regulator \
+    --reference RTO/KA/2026/118 --requested-by priya.ops \
+    --param registration_no=XX69YY3726 --param date_from=2026-09-01 --param date_to=2026-09-30
+python src/share.py stats
+```
+
+Details: [docs/DATA_GOVERNANCE.md](docs/DATA_GOVERNANCE.md) ·
+worked examples: [docs/REQUEST_SPECS.md](docs/REQUEST_SPECS.md)
 
 ## Run it
 ```
 pip install -r requirements.txt
 python run_all.py --fresh      # everything from scratch (~45 s)
 python run_all.py              # later runs: processes only new emails
-pytest                         # 21 tests
+pytest                         # 39 tests
 ```
 Build the dashboard: [docs/DASHBOARD_GUIDE.md](docs/DASHBOARD_GUIDE.md) ·
 Connect a real Gmail inbox: [docs/EMAIL_SETUP.md](docs/EMAIL_SETUP.md)
@@ -72,8 +110,12 @@ Connect a real Gmail inbox: [docs/EMAIL_SETUP.md](docs/EMAIL_SETUP.md)
 - **No passwords in code:** mailbox credentials come from environment variables.
 - **Assumptions are settings**, not hidden in the logic (score weights, fare tolerance,
   fleet availability).
+- **Rules are configuration:** data-quality rules, the PII registry and sharing policies
+  are JSON files that can be reviewed without reading code.
+- **Fail closed:** if quality or approval checks fail, nothing is sent or shared, and the
+  refusal is logged.
 
 ## Tech
 Python (pandas, NumPy, email/IMAP/SMTP from the standard library) · SQLite · SQL (CTEs,
-window functions) · Monte Carlo simulation · Power BI (DAX, star schema, drill-through) ·
+window functions, RANGE windows) · Monte Carlo simulation · Power BI (DAX, star schema, drill-through) ·
 pytest · Git. Everything free and open source except Power BI Desktop (free).
